@@ -1,0 +1,4 @@
+node_modules/
+.env
+*.log
+# per-PC data lives in ~/.gogo, never here

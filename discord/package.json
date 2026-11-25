@@ -1,0 +1,11 @@
+{
+  "name": "gogo-kit-discord",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Discord bot for Claude sessions: questions with recommended answers, result feedback, alerts, channel tidy-up.",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
