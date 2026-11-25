@@ -1,7 +1,8 @@
 // gogo 키트 — Claude Code PC 기본 세팅을 한 번에 깔고(install), 세션 시작 때 점검·자동 수리(check --fix)한다.
 //   caveman(토큰 절약) · 카파시 원문 지침(65줄) + "카파시라면?" · 옵시디언 누적 기억(Karpathy LLM Wiki) · 디스코드 질문/결과물/알림 봇
+//   · 바로가기 창 Ctrl+Shift+F (바로가기 아이콘 + 오늘의 퀘스트 + 달력, AutoHotkey v2)
 //
-//   node gogo.mjs install [--pc-name 이름] [--vault 폴더] [--skip obsidian-app,caveman,autostart,npm]
+//   node gogo.mjs install [--pc-name 이름] [--vault 폴더] [--skip obsidian-app,caveman,autostart,npm,desktop]
 //   node gogo.mjs check [--fix] [--json]            /gogo 가 --fix 로 부른다
 //   node gogo.mjs discord-setup --token <봇 토큰> [--guild <서버 id>]
 //   node gogo.mjs bot start|stop|status
@@ -13,7 +14,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const KIT = path.dirname(fileURLToPath(import.meta.url));
 const [cmd, ...rest] = process.argv.slice(2);
 const args = { _: [] };
@@ -59,6 +60,17 @@ const LLM_WIKI = {
   sha256: 'dc3efe98ae62f23dd08acad13aba2e95287beb20b6bec2f4af0423557fe37401',
 };
 const CAVEMAN = { id: 'caveman@caveman', repo: 'JuliusBrussee/caveman', zip: 'https://codeload.github.com/JuliusBrussee/caveman/zip/refs/heads/main' };
+// 바로가기 창: AutoHotkey v2 (portable zip, pinned, unpacked into the user's folder — no admin) runs desktop/desktop.ahk.
+const AHK = {
+  version: '2.0.32',
+  url: 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip',
+  sha256: '384a4c125e8d7b5b77ddbd5a593ec761d3e9e96e97a95931cf56e9a077fda114',
+};
+const AHK_DIR = path.join(LOCALAPPDATA, 'Programs', 'gogo-autohotkey');
+const DESK_SCRIPT = path.join(KIT, 'desktop', 'desktop.ahk');
+const DESK_DATA = path.join(GOGO_HOME, 'desktop');
+const DESK_NOTES = ['내 일정/오늘의 퀘스트.md', '내 일정/일정.md'];
+const DESK_VBS = path.join(APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'gogo-desktop.vbs');
 const VAULT_DIRS = ['AI-Sessions/raw/assets', 'AI-Sessions/conversations',
   ...['sources', 'entities', 'concepts', 'decisions', 'errors', 'projects', 'guides'].map((d) => `AI-Sessions/wiki/${d}`)];
 const BLOCK_START = '<!-- gogo-kit:start';
@@ -84,6 +96,7 @@ function backup(f) {
 const VARS = () => ({
   PC_NAME: PC, VAULT: fwd(VAULT), KIT: fwd(KIT), DATE: today(), VERSION,
   ASK: `node "${fwd(path.join(KIT, 'discord', 'ask.mjs'))}"`, GOGO: `node "${fwd(path.join(KIT, 'gogo.mjs'))}"`,
+  DESK: fwd(DESK_DATA),
 });
 const render = (t) => lf(t).replace(/\{\{(\w+)\}\}/g, (m, k) => VARS()[k] ?? m);
 /** "//c/Users/x/vault/**" — Claude Code's permission-rule form of an absolute Windows path. */
@@ -391,6 +404,73 @@ async function botStop() {
   return '봇 끔 (자동 시작은 다음 bot start 때 다시)';
 }
 
+// ---- 바로가기 창 (Ctrl+Shift+F) ---------------------------------------------------------------------------------
+const psq = (s) => String(s).replace(/'/g, "''");
+function ahkExe() {
+  return [path.join(AHK_DIR, 'AutoHotkey64.exe'),
+    ...(TEST ? [] : ['C:/Program Files/AutoHotkey/v2/AutoHotkey64.exe', path.join(LOCALAPPDATA, 'Programs', 'AutoHotkey', 'v2', 'AutoHotkey64.exe')])]
+    .find((p) => fs.existsSync(p)) || null;
+}
+async function stepDesktopRuntime() {
+  if (ahkExe()) return '';
+  if (!WIN) throw new Error('윈도우 전용이에요');
+  const zip = await download(AHK.url);
+  if (sha(zip) !== AHK.sha256) throw new Error(`AutoHotkey 파일이 원본과 달라요 (sha256 불일치) — ${AHK.url}`);
+  const tmp = path.join(os.tmpdir(), `gogo-ahk-${crypto.randomBytes(4).toString('hex')}.zip`);
+  write(tmp, zip);
+  fs.mkdirSync(AHK_DIR, { recursive: true });
+  const r = run('powershell', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${psq(tmp)}' -DestinationPath '${psq(AHK_DIR)}' -Force`]);
+  fs.rmSync(tmp, { force: true });
+  if (!ahkExe()) throw new Error(`AutoHotkey 풀기 실패 (회사 보안 프로그램이 막는지 확인): ${r.out.slice(-200)}`);
+  return `AutoHotkey ${AHK.version} 설치 (사용자 폴더)`;
+}
+function stepDesktopData() {
+  const f = path.join(DESK_DATA, 'shortcuts.txt');
+  fs.mkdirSync(path.join(DESK_DATA, 'icons'), { recursive: true });
+  if (fs.existsSync(f)) return '';                 // the list belongs to its owner: never overwrite
+  write(f, read(path.join(KIT, 'desktop', 'shortcuts.template.txt')));
+  return '바로가기 목록 (빈 목록)';
+}
+function deskVbsText() {
+  const q = (s) => s.replace(/"/g, '""');
+  return [
+    "' gogo 키트: 바로가기 창(Ctrl+Shift+F)을 켠다. 이 파일을 지우면 자동 시작이 멈춘다.",
+    'Set sh = CreateObject("WScript.Shell")',
+    `sh.Environment("PROCESS")("GOGO_HOME") = "${q(GOGO_HOME)}"`,
+    `sh.Run """${q(ahkExe() || path.join(AHK_DIR, 'AutoHotkey64.exe'))}"" ""${q(DESK_SCRIPT)}""", 0, False`,
+    '',
+  ].join('\r\n');
+}
+function stepDesktopAutostart() {
+  if (!WIN) return '';
+  const t = deskVbsText();
+  if (readUtf16(DESK_VBS) === t) return '';
+  fs.mkdirSync(path.dirname(DESK_VBS), { recursive: true });
+  fs.writeFileSync(DESK_VBS, Buffer.from('\uFEFF' + t, 'utf16le'));
+  return '바로가기 창 자동 시작 (Windows 시작프로그램)';
+}
+function desktopRunning() {
+  if (!WIN) return false;
+  const ps = spawnSync('powershell', ['-NoProfile', '-Command',
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process -Filter \"Name like 'AutoHotkey%'\" | ForEach-Object { $_.CommandLine }"],
+  { encoding: 'utf8', windowsHide: true, timeout: 60000 });
+  return (ps.stdout || '').replace(/\\/g, '/').toLowerCase().includes(fwd(DESK_SCRIPT).toLowerCase());
+}
+// (Re)starts it: #SingleInstance Force swaps a running copy for this one, so new kit code takes effect.
+async function desktopStart() {
+  const exe = ahkExe();
+  if (!exe) throw new Error('AutoHotkey가 없어요');
+  spawn(exe, [DESK_SCRIPT], { detached: true, stdio: 'ignore', env: { ...process.env, GOGO_HOME } }).unref();
+  for (let i = 0; i < 8; i++) { await sleep(1000); if (desktopRunning()) return '바로가기 창 켬 (Ctrl+Shift+F)'; }
+  throw new Error('바로가기 창이 안 켜져요 (회사 보안 프로그램이 AutoHotkey를 막는지 확인)');
+}
+async function stepDesktop() {
+  const done = [await stepDesktopRuntime(), stepDesktopData(), stepDesktopAutostart()];
+  if (DESK_NOTES.some((n) => !fs.existsSync(path.join(VAULT, n)))) done.push(await stepVault());
+  if (!TEST && (cmd === 'install' || !desktopRunning())) done.push(await desktopStart());
+  return done.filter(Boolean).join(', ');
+}
+
 // ---- checks -----------------------------------------------------------------------------------------------------
 // status: ok | warn | fail | skip. `fix` runs only under --fix for warn/fail.
 async function checks() {
@@ -437,6 +517,21 @@ async function checks() {
     fix: async () => [!reg ? stepObsidianRegister() : '', !exe && !SKIP.has('obsidian-app') ? await stepObsidianApp() : ''].filter(Boolean).join(', '),
     hint: '앱은 사람이 보는 용도 (Claude는 앱 없이도 보관함을 씀)',
   });
+
+  if (WIN) {
+    const exe = ahkExe();
+    const listFile = path.join(DESK_DATA, 'shortcuts.txt');
+    const list = read(listFile);
+    const notes = DESK_NOTES.filter((n) => !fs.existsSync(path.join(VAULT, n)));
+    const auto = readUtf16(DESK_VBS) === deskVbsText();
+    const on = TEST ? null : desktopRunning();
+    const problems = [!exe && 'AutoHotkey 없음', list === null && '바로가기 목록 없음', notes.length && `노트 없음: ${notes.join(', ')}`,
+      !auto && '자동 시작 없음', on === false && '꺼져 있음'].filter(Boolean);
+    const count = (list || '').split(/\r?\n/).filter((l) => l.includes('|') && !l.trim().startsWith('#')).length;
+    add('바로가기 창 (Ctrl+Shift+F)', problems.length ? 'fail' : 'ok',
+      problems.length ? problems.join(' · ') : `${on === null ? '시험 모드라 안 켬' : '켜짐'} · 바로가기 ${count}개 · 퀘스트·일정 노트 O`,
+      { fix: stepDesktop, hint: problems.length ? '회사 보안 프로그램이 AutoHotkey를 막으면 IT 담당자에게 허용을 부탁' : '' });
+  }
 
   const { token, guild } = creds();
   if (!token || !guild) {
@@ -500,6 +595,7 @@ if (cmd === 'install' || cmd === 'check') {
     if (!SKIP.has('obsidian-app')) await tryStep('옵시디언 앱', stepObsidianApp);
     if (!SKIP.has('npm')) await tryStep('디스코드 부품', stepDiscordDeps);
     if (!SKIP.has('autostart')) await tryStep('자동 시작', stepAutostart);
+    if (WIN && !SKIP.has('desktop')) await tryStep('바로가기 창', stepDesktop);
     if (creds().token && !SKIP.has('autostart')) await tryStep('봇', botStart);
   }
   let rows = await checks();
