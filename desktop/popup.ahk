@@ -13,6 +13,10 @@ VAULT := GogoVault(GOGO_HOME "\install.json") || EnvGet("USERPROFILE") "\obsidia
 ; 오늘의 퀘스트 (화면 오른쪽 위) · 달력 (위쪽 가운데) = 보관함의 노트 두 개. 빈 곳이나 「편집」을 누르면 옵시디언에서 열림.
 QUEST_MD := VAULT "\내 일정\오늘의 퀘스트.md"
 CAL_MD := VAULT "\내 일정\일정.md"
+; 서버 (servers.ahk): 꺼진 로컬 페이지는 눌렀을 때 숨겨서 켜고, 켜진 서버 수·끄기. node = gogo.mjs가 알려 준 것(GOGO_NODE).
+SERVERS_DIR := DATA_DIR
+SERVERS_JS := A_ScriptDir "\servers.mjs"
+NODE := EnvGet("GOGO_NODE") != "" ? EnvGet("GOGO_NODE") : "node.exe"
 
 EditShortcuts() {
   HideShortcuts()
@@ -130,6 +134,8 @@ ShowShortcuts(activate := true) {
   if activate
     WinActivate(popup.Hwnd)
   StartChecks()
+  LoadServers()
+  RefreshServers()
   SetTimer(Watch, 80)
 }
 
@@ -262,6 +268,8 @@ ToolButtons() {
 }
 
 ButtonAt(x, y) {
+  if ServerPillAt(x, y)
+    return "servers"
   for b in ToolButtons()
     if (x - b.x - b.d / 2) ** 2 + (y - b.y - b.d / 2) ** 2 <= (b.d / 2 + 2 * panel.s) ** 2
       return b.id
@@ -269,6 +277,8 @@ ButtonAt(x, y) {
 }
 
 PressButton(id) {
+  if id = "servers"
+    return ShowServers()
   if id = "add"
     return EditShortcut(0, hoverHead || (selected ? items[selected].si : 0))
   if id = "category"
@@ -575,6 +585,9 @@ Paint() {
       c.Circle(b.x, b.y, b.d, on ? 0xFF3B82F6 : 0xFFEDF0F5)
     c.Text(b.glyph, b.x, b.y, b.d, b.d, 13 * s, on ? 0xFFFFFFFF : 0xFF4B5263, false, "Segoe MDL2 Assets")
   }
+  PaintServerPill(c, hoverButton = "servers")   ; servers.ahk: how many local servers run
+  if hoverButton = "servers"
+    tip := ServerTip()
   ; Category headings (a dragged one blue, a pointed one grey), and a dragged icon's target section tinted.
   for si, b in L.bands {
     sec := sections[si], x := L.margin + L.pad - 6 * s, w := L.pw - L.pad * 2 + 12 * s
@@ -654,9 +667,15 @@ OpenItem(i, how := "") {
   OpenShortcut(items[i], how)
 }
 
-OpenShortcut(item, how := "") {
+OpenShortcut(item, how := "", started := false) {
   global tabWindow, holdUntil
   target := item.target, group := IsGroup(target)
+  if !started && item.up = 0 && LocalPort(target) != "" {   ; servers.ahk: start it hidden, open when it answers
+    if how = ""
+      HideShortcuts()
+    return StartThenOpen(item, how)
+  }
+  NoteUsed(target)
   if how = ""
     HideShortcuts()
   else
@@ -1071,7 +1090,7 @@ ShowBeside(g) {
   x := posX + panel.w - panel.margin
   if x + w > m.r
     x := posX + panel.margin - w
-  g.Show(Format("x{} y{}", Max(m.l, Min(m.r - w, x)), Max(m.t, Min(m.b - h, posY + panel.margin))))
+  g.Show(Format("x{} y{}", Max(m.l, Min(m.r - w, x)), Max(m.t, Min(m.b - h, posY + panel.margin))) (focused ? "" : " NA"))   ; preview: no focus
 }
 
 ; A free name in icons\ for a picked picture (saved there as PNG).
@@ -1219,6 +1238,11 @@ Watch() {
     ShowQuests()
   if LoadCalendar()
     ShowCalendar()
+  if LoadServers() {   ; servers.ahk: the count landed (or servers were stopped): dots, pill and list again
+    StartChecks()
+    Paint()
+    FillServerList()
+  }
   changed := false
   for item, requests in checks.Clone() {
     answered := 0

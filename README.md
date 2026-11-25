@@ -10,7 +10,7 @@
 | **/karpathy** 스킬 | "카파시라면?" / "더 좋은 방법 있어?" → 표준·대안 비교 후 추천 하나 |
 | **옵시디언 보관함** ([Karpathy LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) | Claude가 쓰고 관리하는 누적 기억: 운영 규칙·목차·작업 기록·PC 폴더 지도·사람용 사용법. 모든 프로젝트에서 읽기·쓰기 허용 |
 | **디스코드 봇** | 결정이 필요한 질문(추천안 파란 버튼) · 결과물 피드백(👍/👎/✏️) · 알림 · 채널 만들기/정리 |
-| **바로가기 창** (`Ctrl+Shift+F`, AutoHotkey v2) | 어디서든 단축키 → 동그란 바로가기 아이콘(빈 목록에서 시작, ＋로 추가) + 화면 오른쪽 위 **오늘의 퀘스트**(누르면 체크, 매일 자동 초기화) + 위쪽 가운데 **달력**. 퀘스트·일정은 옵시디언 `내 일정/` 노트 두 개 |
+| **바로가기 창** (`Ctrl+Shift+F`, AutoHotkey v2) | 어디서든 단축키 → 동그란 바로가기 아이콘(빈 목록에서 시작, ＋로 추가) + 화면 오른쪽 위 **오늘의 퀘스트**(누르면 체크, 매일 자동 초기화) + 위쪽 가운데 **달력**. 퀘스트·일정은 옵시디언 `내 일정/` 노트 두 개. **로컬 서버**: 꺼진 `localhost` 바로가기를 누르면 창 없이 켜고 열림 · 왼쪽 위 「서버 N개」 = 켜진 서버 목록(메모리·안 쓴 시간) → 오래 안 쓴 것 끄기 |
 | **/gogo** 스킬 + `gogo.mjs check --fix` | 위 전부 점검 → 자동 수리 → 맥락 불러오기 → 세션 시작 |
 
 **안 들어가는 것**: 메인 PC의 개인정보·토큰·주소·폴더 경로, 메인 PC를 조작하는 기능. 키트에는 코드와 빈 양식만 있고, 디스코드 토큰은 설치한 PC의 `~/.gogo/.env` 에만 저장돼요.
@@ -99,4 +99,4 @@ https://raw.githubusercontent.com/subbyscenter/claude-gogo-kit/main/SETUP.md 를
 | `claude/skills/` | `/gogo`, `/karpathy` |
 | `vault/` | 보관함 양식 (없는 파일만 만들고, 있는 파일은 절대 덮어쓰지 않음) |
 | `discord/` | `bot.mjs`(상주 봇) · `ask.mjs`(질문·결과물·알림·채널) · `common.mjs` |
-| `desktop/` | 바로가기 창 (AutoHotkey v2): `desktop.ahk`(단축키·트레이) · `popup.ahk`(창·퀘스트·달력) · `lib.ahk`(목록·노트 읽고 쓰기) · `test.ahk`(자가 시험). 사용자 목록·아이콘은 `~/.gogo/desktop/` 에 |
+| `desktop/` | 바로가기 창 (AutoHotkey v2): `desktop.ahk`(단축키·트레이) · `popup.ahk`(창·퀘스트·달력) · `lib.ahk`(목록·노트 읽고 쓰기) · `servers.ahk`+`servers.mjs`(로컬 서버 켜기·세기·끄기, 창 없이) · `test.ahk`(자가 시험). 사용자 목록·아이콘·서버 기록은 `~/.gogo/desktop/` 에 |

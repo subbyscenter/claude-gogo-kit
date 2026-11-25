@@ -11,6 +11,7 @@ EnvSet("GOGO_HOME", SANDBOX)
 #Include draw.ahk
 #Include popup.ahk
 #Include chrome.ahk
+#Include servers.ahk
 failures := 0
 Check(name, ok, detail := "") {
   global failures
@@ -80,6 +81,16 @@ Check("range over the new year", ev[4].end = "2027-01-02")
 Check("an end before the start = one day", ev[5].start = "2026-11-20" && ev[5].end = "2026-11-20")
 FileOpen(CAL_MD, "w", "UTF-8").Write(cal)
 Check("calendar map by day", LoadCalendar() && calEvents.Has("2026-12-11") && calEvents["2026-12-31"][1].title = "연말" && !LoadCalendar())
+
+; ---- servers ----
+sv := ParseServers("at`t1700000000`ns`t8011`t8011`t더빙 스튜디오`t159`t30`tpm2`t0`t1`ns`t1818`t1818,1819`tnode server.js`t56`t2000`tnone`t1`t0`n")
+Check("server list read (empty last line is fine)", sv.at = 1700000000 && sv.list.Length = 2 && sv.list[1].name = "더빙 스튜디오" && sv.list[1].inUse
+  && sv.list[2].ports = "1818,1819" && sv.list[2].keep && sv.list[2].how = "none" && sv.list[2].idle = 2000)
+Check("idle labels", IdleLabel(5) = "5분" && IdleLabel(180) = "3시간" && IdleLabel(2880) = "2일")
+Check("local port of a page", LocalPort("http://localhost:8011/comic-dub/") = "8011" && LocalPort("http://127.0.0.1:5173/") = "5173"
+  && LocalPort("https://example.com:8443/") = "" && LocalPort("http://localhost:1/ http://localhost:2/") = "")
+NoteUsed("http://localhost:8011/x")
+Check("opening a local page is noted as used", RegExMatch(FileRead(SERVERS_DIR "\used.log", "UTF-8"), "^8011\t\d{10}\n$"))
 
 try DirDelete(SANDBOX, true)
 FileAppend(failures ? "FAILED " failures "`n" : "ALL PASS`n", "*", "UTF-8")

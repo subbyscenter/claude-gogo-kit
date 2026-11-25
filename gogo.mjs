@@ -437,6 +437,7 @@ function deskVbsText() {
     "' gogo 키트: 바로가기 창(Ctrl+Shift+F)을 켠다. 이 파일을 지우면 자동 시작이 멈춘다.",
     'Set sh = CreateObject("WScript.Shell")',
     `sh.Environment("PROCESS")("GOGO_HOME") = "${q(GOGO_HOME)}"`,
+    `sh.Environment("PROCESS")("GOGO_NODE") = "${q(process.execPath)}"`,   // servers.mjs: start / stop local servers
     `sh.Run """${q(ahkExe() || path.join(AHK_DIR, 'AutoHotkey64.exe'))}"" ""${q(DESK_SCRIPT)}""", 0, False`,
     '',
   ].join('\r\n');
@@ -460,7 +461,7 @@ function desktopRunning() {
 async function desktopStart() {
   const exe = ahkExe();
   if (!exe) throw new Error('AutoHotkey가 없어요');
-  spawn(exe, [DESK_SCRIPT], { detached: true, stdio: 'ignore', env: { ...process.env, GOGO_HOME } }).unref();
+  spawn(exe, [DESK_SCRIPT], { detached: true, stdio: 'ignore', env: { ...process.env, GOGO_HOME, GOGO_NODE: process.execPath } }).unref();
   for (let i = 0; i < 8; i++) { await sleep(1000); if (desktopRunning()) return '바로가기 창 켬 (Ctrl+Shift+F)'; }
   throw new Error('바로가기 창이 안 켜져요 (회사 보안 프로그램이 AutoHotkey를 막는지 확인)');
 }

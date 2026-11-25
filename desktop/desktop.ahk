@@ -9,6 +9,7 @@ Persistent
 #Include draw.ahk
 #Include popup.ahk
 #Include chrome.ahk
+#Include servers.ahk
 
 ; Physical pixels for windows and screens on every monitor (otherwise a scaled screen reports scaled coordinates).
 DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
@@ -24,6 +25,8 @@ tray.Add()
 tray.Add("다시 불러오기", (*) => Reload())
 tray.Add("끄기", (*) => ExitApp())
 tray.Default := "바로가기 열기`tCtrl+Shift+F"
+
+SetTimer(SampleServers, 300000)   ; every 5 min: which local servers a browser has open ("last used")
 
 ^+f::ToggleShortcuts()
 
